@@ -45,7 +45,7 @@ slack:
   # When set to false, the bot will post like any other integration (like
   # webhooks). This allows it to post on almost any channel without having to
   # be invited.
-  as-user: true
+  as-user: false
 irc:
   # Use this flag to enable/disable the IRC connector.
   enable: false
@@ -105,3 +105,11 @@ core:
     includeSelf: true
 misc:
   ignore-ca: false
+
+commands:
+  lookup:
+    # Override set of REGEXes used by the lookup command.
+    #
+    # To get the default behaviour of v2, set it to an empty array.
+    matchers:
+      - ([T|D][0-9]{1,16})+

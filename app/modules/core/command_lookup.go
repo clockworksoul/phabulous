@@ -2,17 +2,25 @@ package core
 
 import (
 	"fmt"
-
 	"github.com/etcinit/phabulous/app/interfaces"
 	"github.com/etcinit/phabulous/app/messages"
+	"github.com/etcinit/phabulous/app/utilities"
 )
 
 // LookupCommand allows users to lookup objects from Phabricator.
-type LookupCommand struct{}
+type LookupCommand struct {
+	CustomMatchers []string
+}
+
+// GetDefaultMatchers returns the default matchers of the LookupCommand.
+func (c *LookupCommand) GetDefaultMatchers() []string {
+	defaultMatchers := []string{"^([T|D][0-9]{1,16})$"}
+	return defaultMatchers
+}
 
 // GetUsage returns the usage of this command.
 func (c *LookupCommand) GetUsage() string {
-	return "lookup (Txxx|Dxxx)"
+	return "(Txxx|Dxxx)"
 }
 
 // GetDescription returns the description of this command.
@@ -22,15 +30,16 @@ func (c *LookupCommand) GetDescription() string {
 
 // GetMatchers returns the matchers for this command.
 func (c *LookupCommand) GetMatchers() []string {
-	return []string{
-		"^([T|D][0-9]{1,16})$",
+	if c.CustomMatchers != nil {
+		return c.CustomMatchers
 	}
+
+	return c.GetDefaultMatchers()
 }
 
 // GetIMMatchers returns IM matchers for this command.
 func (c *LookupCommand) GetIMMatchers() []string {
 	return []string{
-		"^lookup\\s+([T|D][0-9]{1,16})$",
 		"^([T|D][0-9]{1,16})$",
 	}
 }
@@ -38,7 +47,6 @@ func (c *LookupCommand) GetIMMatchers() []string {
 // GetMentionMatchers returns the channel mention matchers for this command.
 func (c *LookupCommand) GetMentionMatchers() []string {
 	return []string{
-		"lookup\\s+([T|D][0-9]{1,16})",
 		"([T|D][0-9]{1,16})",
 	}
 }
@@ -54,27 +62,27 @@ func (c *LookupCommand) GetHandler() interfaces.Handler {
 			return
 		}
 
-		res, err := conn.PHIDLookupSingle(matches[1])
-		if err != nil {
-			s.Excuse(m, err)
-			return
-		}
+		uniqueMatches := utilities.UniqueItemsOf(matches)
 
-		if res == nil {
-			s.Post(
-				m.GetChannel(),
-				fmt.Sprintf("I couldn't find %s", matches[1]),
-				messages.IconDefault,
-				true,
-			)
-			return
+		for _, match := range uniqueMatches {
+			res, err := conn.PHIDLookupSingle(match)
+			if err != nil {
+				s.Excuse(m, err)
+			} else if res == nil {
+				s.Post(
+					m.GetChannel(),
+					fmt.Sprintf("I couldn't find %s", match),
+					messages.IconDefault,
+					true,
+				)
+			} else {
+				s.Post(
+					m.GetChannel(),
+					fmt.Sprintf("*%s* (%s): %s", res.FullName, res.Status, res.URI),
+					messages.IconTasks,
+					true,
+				)
+			}
 		}
-
-		s.Post(
-			m.GetChannel(),
-			fmt.Sprintf("*%s* (%s): %s", res.FullName, res.Status, res.URI),
-			messages.IconTasks,
-			true,
-		)
 	}
 }
